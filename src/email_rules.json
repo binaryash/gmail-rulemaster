@@ -1,0 +1,104 @@
+{
+  "rules": [
+    {
+      "id": "rule1",
+      "name": "Mark newsletters as read",
+      "predicate": "any",
+      "conditions": [
+        {
+          "field": "from",
+          "predicate": "contains",
+          "value": "newsletter"
+        },
+        {
+          "field": "subject",
+          "predicate": "contains",
+          "value": "newsletter"
+        }
+      ],
+      "actions": [
+        {
+          "type": "mark_as_read",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "rule2",
+      "name": "Move important emails to Important folder",
+      "predicate": "all",
+      "conditions": [
+        {
+          "field": "subject",
+          "predicate": "contains",
+          "value": "important"
+        },
+        {
+          "field": "from",
+          "predicate": "does not contain",
+          "value": "noreply"
+        }
+      ],
+      "actions": [
+        {
+          "type": "move_message",
+          "value": "Important"
+        }
+      ]
+    },
+    {
+      "id": "rule3",
+      "name": "Archive old promotional emails",
+      "predicate": "all",
+      "conditions": [
+        {
+          "field": "subject",
+          "predicate": "contains",
+          "value": "promotion"
+        },
+        {
+          "field": "received",
+          "predicate": "greater than",
+          "value": "7 days"
+        }
+      ],
+      "actions": [
+        {
+          "type": "mark_as_read",
+          "value": true
+        },
+        {
+          "type": "move_message",
+          "value": "Promotions"
+        }
+      ]
+    },
+    {
+      "id": "rule4",
+      "name": "Flag emails from boss",
+      "predicate": "all",
+      "conditions": [
+        {
+          "field": "from",
+          "predicate": "contains",
+          "value": "boss@company.com"
+        },
+        {
+          "field": "received",
+          "predicate": "less than",
+          "value": "1 days"
+        }
+      ],
+      "actions": [
+        {
+          "type": "mark_as_unread",
+          "value": false
+        },
+        {
+          "type": "move_message",
+          "value": "Boss"
+        }
+      ]
+    }
+  ]
+}
