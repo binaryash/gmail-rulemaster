@@ -5,11 +5,12 @@ import json
 from unittest.mock import patch, MagicMock, mock_open
 from datetime import datetime, timedelta
 
-# Import the module to test
-import gmail_rule_processor as grp
+# Import the modules to test
+import email_fetcher as ef
+import email_processor as grp
 
-class TestGmailRuleProcessor(unittest.TestCase):
-    """Test cases for the Gmail Rule Processor."""
+class TestEmailProcessor(unittest.TestCase):
+    """Test cases for the Email Fetcher and Gmail Rule Processor."""
     
     def setUp(self):
         """Set up test environment."""
@@ -96,10 +97,12 @@ class TestGmailRuleProcessor(unittest.TestCase):
         conn.commit()
         conn.close()
     
+    # Email Fetcher Tests
+    
     def test_init_database(self):
         """Test database initialization."""
-        with patch('gmail_rule_processor.DB_FILE', self.test_db):
-            result = grp.init_database()
+        with patch('email_fetcher.DB_FILE', self.test_db):
+            result = ef.init_database()
             self.assertTrue(result)
             
             # Verify tables exist
@@ -120,9 +123,9 @@ class TestGmailRuleProcessor(unittest.TestCase):
         """Test storing an email in the database."""
         self.setup_test_db()
         
-        with patch('gmail_rule_processor.DB_FILE', self.test_db):
+        with patch('email_fetcher.DB_FILE', self.test_db):
             # Store a sample email
-            result = grp.store_email(self.sample_email)
+            result = ef.store_email(self.sample_email)
             self.assertTrue(result)
             
             # Verify the email was stored
@@ -161,11 +164,79 @@ class TestGmailRuleProcessor(unittest.TestCase):
         conn.commit()
         conn.close()
         
-        with patch('gmail_rule_processor.DB_FILE', self.test_db):
+        with patch('email_fetcher.DB_FILE', self.test_db):
             # Fetch emails
-            emails = grp.fetch_emails_from_db(limit=10)
+            emails = ef.fetch_emails_from_db(limit=10)
             self.assertEqual(len(emails), 1)
             self.assertEqual(emails[0]['id'], self.sample_email['id'])
+    
+    @patch('email_fetcher.modify_labels')
+    def test_modify_labels(self, mock_modify_labels):
+        """Test modifying labels on an email."""
+        mock_service = MagicMock()
+        mock_modify_labels.return_value = True
+        
+        result = ef.modify_labels(
+            mock_service, 
+            self.sample_email['id'], 
+            {'removeLabelIds': ['UNREAD']}
+        )
+        self.assertTrue(result)
+    
+    @patch('email_fetcher.get_or_create_label')
+    def test_get_or_create_label(self, mock_get_label):
+        """Test getting or creating a label."""
+        mock_service = MagicMock()
+        mock_get_label.return_value = 'Label_123'
+        
+        label_id = ef.get_or_create_label(mock_service, 'TestLabel')
+        self.assertEqual(label_id, 'Label_123')
+    
+    def test_record_rule_action(self):
+        """Test recording rule actions in the database."""
+        self.setup_test_db()
+        
+        with patch('email_fetcher.DB_FILE', self.test_db):
+            # Record a rule action
+            result = ef.record_rule_action(
+                self.sample_email['id'],
+                'rule1',
+                'mark_as_read',
+                'true'
+            )
+            self.assertTrue(result)
+            
+            # Verify the action was recorded
+            conn = sqlite3.connect(self.test_db)
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM rule_actions WHERE email_id = ?", (self.sample_email['id'],))
+            row = cursor.fetchone()
+            self.assertIsNotNone(row)
+            self.assertEqual(row[2], 'rule1')  # rule_id
+            self.assertEqual(row[3], 'mark_as_read')  # action_type
+            conn.close()
+    
+    @patch('email_fetcher.list_messages')
+    @patch('email_fetcher.get_message_detail')
+    @patch('email_fetcher.store_email')
+    def test_fetch_emails_and_store(self, mock_store_email, mock_get_message_detail, mock_list_messages):
+        """Test fetching emails from Gmail API and storing them."""
+        # Mock Gmail API responses
+        mock_service = MagicMock()
+        mock_list_messages.return_value = [{'id': 'msg1'}, {'id': 'msg2'}]
+        mock_get_message_detail.return_value = self.sample_email
+        mock_store_email.return_value = True
+        
+        # Call the function
+        count = ef.fetch_emails_and_store(mock_service, max_emails=2)
+        
+        # Verify results
+        self.assertEqual(count, 2)
+        self.assertEqual(mock_list_messages.call_count, 1)
+        self.assertEqual(mock_get_message_detail.call_count, 2)
+        self.assertEqual(mock_store_email.call_count, 2)
+    
+    # Gmail Rule Processor Tests
     
     def test_load_rules(self):
         """Test loading rules from a JSON file."""
@@ -345,49 +416,31 @@ class TestGmailRuleProcessor(unittest.TestCase):
             {'removeLabelIds': ['INBOX'], 'addLabelIds': ['Label_123']}
         )
     
-    def test_record_rule_action(self):
-        """Test recording rule actions in the database."""
-        self.setup_test_db()
-        
-        with patch('gmail_rule_processor.DB_FILE', self.test_db):
-            # Record a rule action
-            result = grp.record_rule_action(
-                self.sample_email['id'],
-                'rule1',
-                'mark_as_read',
-                'true'
-            )
-            self.assertTrue(result)
-            
-            # Verify the action was recorded
-            conn = sqlite3.connect(self.test_db)
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM rule_actions WHERE email_id = ?", (self.sample_email['id'],))
-            row = cursor.fetchone()
-            self.assertIsNotNone(row)
-            self.assertEqual(row[2], 'rule1')  # rule_id
-            self.assertEqual(row[3], 'mark_as_read')  # action_type
-            conn.close()
-    
-    @patch('gmail_rule_processor.list_messages')
-    @patch('gmail_rule_processor.get_message_detail')
-    @patch('gmail_rule_processor.store_email')
-    def test_fetch_emails_and_store(self, mock_store_email, mock_get_message_detail, mock_list_messages):
-        """Test fetching emails from Gmail API and storing them."""
-        # Mock Gmail API responses
+    @patch('gmail_rule_processor.load_rules')
+    @patch('gmail_rule_processor.fetch_emails_from_db')
+    @patch('gmail_rule_processor.evaluate_rule')
+    @patch('gmail_rule_processor.apply_action')
+    @patch('gmail_rule_processor.record_rule_action')
+    def test_process_emails_with_rules(self, mock_record, mock_apply, mock_evaluate, mock_fetch, mock_load):
+        """Test processing emails with rules."""
+        # Setup mocks
         mock_service = MagicMock()
-        mock_list_messages.return_value = [{'id': 'msg1'}, {'id': 'msg2'}]
-        mock_get_message_detail.return_value = self.sample_email
-        mock_store_email.return_value = True
+        mock_load.return_value = self.sample_rules
+        mock_fetch.return_value = [self.sample_email]
+        mock_evaluate.return_value = True
+        mock_apply.return_value = "marked as read"
+        mock_record.return_value = True
         
         # Call the function
-        count = grp.fetch_emails_and_store(mock_service, max_emails=2)
+        actions = grp.process_emails_with_rules(mock_service)
         
         # Verify results
-        self.assertEqual(count, 2)
-        self.assertEqual(mock_list_messages.call_count, 1)
-        self.assertEqual(mock_get_message_detail.call_count, 2)
-        self.assertEqual(mock_store_email.call_count, 2)
+        self.assertEqual(actions, 1)
+        mock_load.assert_called_once()
+        mock_fetch.assert_called_once()
+        mock_evaluate.assert_called_once()
+        mock_apply.assert_called_once()
+        mock_record.assert_called_once()
 
 if __name__ == '__main__':
     unittest.main()
