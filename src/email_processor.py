@@ -19,7 +19,7 @@ def load_rules():
         return rules
     except FileNotFoundError:
         print(f"Rules file not found: {RULES_FILE}")
-        # Create a default rules file with example
+        # Create a default rules file
         default_rules = {
             "rules": [
                 {
@@ -93,7 +93,7 @@ def evaluate_condition(email, condition):
                     threshold = now - datetime.timedelta(days=amount)
                     return email_date < threshold
                 elif unit.startswith('month'):
-                    # Approximate months as 30 days for simplicity
+                    # Approximated months as 30 days for simplicity
                     threshold = now - datetime.timedelta(days=amount*30)
                     return email_date < threshold
             
@@ -103,7 +103,7 @@ def evaluate_condition(email, condition):
                     threshold = now - datetime.timedelta(days=amount)
                     return email_date > threshold
                 elif unit.startswith('month'):
-                    # Approximate months as 30 days for simplicity
+                    # Approximated months as 30 days for simplicity
                     threshold = now - datetime.timedelta(days=amount*30)
                     return email_date > threshold
                     
@@ -125,7 +125,6 @@ def evaluate_condition(email, condition):
     elif predicate == 'does not equal':
         return value.lower() != field_value.lower()
     
-    # If we got here, we don't know how to evaluate this predicate
     return False
 
 def evaluate_rule(email, rule):

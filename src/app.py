@@ -150,7 +150,7 @@ def add_rule_form():
         st.subheader("Conditions")
         predicate = st.selectbox("Match", ["any", "all"], help="Match any or all conditions")
         
-        # Let's create dynamic conditions
+        # Dynamic conditions
         condition_count = st.number_input("Number of conditions", min_value=1, max_value=5, value=1)
         conditions = []
         
@@ -295,7 +295,7 @@ def display_rules():
 # User authentication check
 def check_authentication():
     """Check if the user has authenticated with Gmail."""
-    # Just check if token file exists
+    # Check if token file exists
     return os.path.exists('token.json')
 
 # Main dashboard
@@ -346,14 +346,14 @@ def render_dashboard():
                 # Debug information
                 if not 'date' in df_by_day.columns:
                     st.warning(f"Expected 'date' column but found: {df_by_day.columns.tolist()}")
-                    # Try to rename columns if they exist with different names
+        
                     for col in df_by_day.columns:
                         if 'date' in col.lower():
                             df_by_day = df_by_day.rename(columns={col: 'date'})
                             st.success(f"Renamed column '{col}' to 'date'")
                             break
                 
-                # Use Streamlit's native bar chart with proper error handling
+            
                 try:
                     st.bar_chart(
                         df_by_day.set_index('date')['count'] if 'date' in df_by_day.columns else df_by_day,
@@ -368,7 +368,7 @@ def render_dashboard():
         with col2:
             st.subheader("Top Email Senders")
             if stats['top_senders']:
-                # Create DataFrame
+          
                 df_senders = pd.DataFrame(stats['top_senders'])
                 
                 # Debug information
@@ -377,13 +377,13 @@ def render_dashboard():
                 
                 # Safe access with error handling
                 try:
-                    # Anonymize sender names for privacy
+                 
                     if 'sender_name' in df_senders.columns:
                         df_senders['sender_name'] = df_senders['sender_name'].apply(
                             lambda x: f"{x[:3]}***{x.split('@')[1] if '@' in x else ''}" if x and len(x) > 3 else x
                         )
                         
-                        # Use a simple bar chart
+                    
                         st.bar_chart(
                             df_senders.set_index('sender_name')['count'],
                             height=300
@@ -407,7 +407,7 @@ def render_dashboard():
                 filtered_labels = {k: v for k, v in stats['label_counter'].items() 
                                   if not k.startswith('CATEGORY_')}
                 
-                # Only keep top 10 labels
+                # Top 10 labels alone kept 
                 top_labels = dict(sorted(filtered_labels.items(), 
                                         key=lambda x: x[1], 
                                         reverse=True)[:10])
@@ -417,7 +417,6 @@ def render_dashboard():
                     'count': list(top_labels.values())
                 })
                 
-                # Use Streamlit's native bar chart with error handling
                 try:
                     st.bar_chart(
                         df_labels.set_index('label')['count'],
@@ -448,7 +447,6 @@ def render_dashboard():
                         # Group by rule name and sum counts
                         rule_summary = df_actions.groupby('rule_name')['count'].sum()
                         
-                        # Use Streamlit's native bar chart
                         st.bar_chart(rule_summary, height=300)
                         
                         # Display action types in a table
@@ -539,7 +537,6 @@ def render_dashboard():
 
 # Sidebar
 def render_sidebar():
-    st.sidebar.image("https://via.placeholder.com/150x150.png?text=EM", width=150)
     st.sidebar.title("Email Manager")
     
     st.sidebar.info(

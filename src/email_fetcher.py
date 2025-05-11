@@ -15,7 +15,7 @@ from googleapiclient.errors import HttpError
 
 # If modifying these SCOPES, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly', 'https://www.googleapis.com/auth/gmail.modify']
-# Path to your client secrets JSON file
+# Path to client secrets JSON file
 CLIENT_SECRET_FILE = 'client_secrets.json'
 # Path to store the token
 TOKEN_FILE = 'token.json'
@@ -86,7 +86,7 @@ def list_messages(service, user_id='me', max_results=50, query=''):
         if 'messages' in response:
             messages.extend(response['messages'])
 
-        # You can add pagination here if you need more than max_results
+        # pagination if need more than max_results
         while 'nextPageToken' in response and len(messages) < max_results:
             page_token = response['nextPageToken']
             response = service.users().messages().list(
@@ -151,10 +151,9 @@ def get_message_detail(service, user_id='me', msg_id=''):
                     break
                 # Fallback to html if plain text not found
                 elif part['mimeType'] == 'text/html' and 'data' in part['body'] and not body_data:
-                    # Just extract text content without HTML tags for simplicity
+                    # Extract text content without HTML tags for simplicity
                     raw_html = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8', errors='replace')
-                    # In a real app, you might want to use BeautifulSoup to extract text properly
-                    body_data = raw_html  # For now, just store the HTML
+                    body_data = raw_html  # Store the HTML
         elif 'body' in payload and 'data' in payload['body']:  # Non-multipart email
              if payload.get('mimeType') == 'text/plain':
                 body_data = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8', errors='replace')
@@ -373,7 +372,7 @@ def get_or_create_label(service, label_name, user_id='me'):
             if label['name'].lower() == label_name.lower():
                 return label['id']
         
-        # If not, create it
+        # If not, create labels
         label = {
             'name': label_name,
             'labelListVisibility': 'labelShow',
